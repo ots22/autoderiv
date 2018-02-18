@@ -1,4 +1,4 @@
---import Debug.Trace
+module Autoderiv where
 
 data DualNumber a = D a a
 
@@ -48,10 +48,6 @@ instance Floating a => Floating (DualNumber a) where
 value (D x x') = x
 deriv (D x x') = x'
 
--- example
-  
-f x = helper 100 x
-  where helper 0 y = y
-        helper n y = helper (n-1) $ sin (x+y)
-
-main = mapM print $ map (\x-> f (D x 1.0)) $ take 5 [1..]
+lift x = D x 0
+derivativeAndValue fn x = fn (D x 1)
+derivative fn = deriv . (derivativeAndValue fn)
