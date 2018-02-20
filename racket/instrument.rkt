@@ -1,6 +1,10 @@
 #lang racket
-(require racket/syntax syntax/parse)
-(require (for-syntax racket racket/syntax syntax/parse))
+(require racket/syntax
+         syntax/parse
+         (for-syntax
+           racket
+           racket/syntax
+           syntax/parse))
 
 ;; print each intermediate function evaluation
 (define (add-to-tape form)
@@ -9,7 +13,6 @@
 
 ;; tape-helper works on expanded forms
 (define-syntax (tape-helper/orig stx)
-  (displayln "in-helper")
   (syntax-parse stx #:literals (#%plain-app quote)
                 [(_) #'()]
                 [(_ (args ...)) #'(tape-helper/orig args ...)] ;; descend into lists
@@ -40,4 +43,4 @@
              #`(tape-helper/orig #,expanded))]))
 
 (w/helper (+ 1 2))
-(w/helper (+ (if #f 3 4) 5))
+;(w/helper (+ (if #f 3 4) 5))

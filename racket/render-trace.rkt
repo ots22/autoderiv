@@ -1,19 +1,12 @@
 #lang racket
-(require pict pict/tree-layout pict/code)
+(require pict
+         pict/tree-layout
+         pict/code
+         rackunit
+         "util.rkt"
+         "trace.rkt")
 
-(define eg-tree `(((,+ . 8) ((value . 3)) ((value . 5)))))
-(define eg-tree2 `(((,+ . 7) ((value . 1)) ((,* . 6) ((value . 2)) ((value . 3))))))
-
-(define (atom? x)
-  (not (or (pair? x) (null? x))))
-
-(define (node? x)
-  (and (pair? x)
-       (atom? (car x))
-       (atom? (cdr x))))
-
-(define (node-label node) (car node))
-(define (node-value node) (cdr node))
+(provide render-trace)
 
 (define (procname p)
   (cond [(object-name p) => identity]
@@ -39,10 +32,12 @@
    ;; Otherwise, it is a list of sub-trees
    [else (map render-trace tree)]))
 
-(provide render-trace)
+(define (render-example)
+  (let ([eg-tree `(((,+ . 5)
+                    ((value . 2)) ((value . 3))))])
+    (scale-to-fit
+     (naive-layered (car (render-trace eg-tree)))
+     300 200)))
 
-(render-trace eg-tree2)
-
-(scale-to-fit
- (naive-layered (car (render-trace eg-tree2)))
- 300 200)
+(module+ test
+  (check-not-exn render-example))
