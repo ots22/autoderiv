@@ -1,6 +1,8 @@
 #lang racket
 (require racket/syntax
          syntax/parse
+         rackunit
+         "trace.rkt"
          (for-syntax
            racket
            racket/syntax
@@ -42,5 +44,5 @@
     [(_ a) (let ([expanded (local-expand #'a 'expression '())])
              #`(tape-helper/orig #,expanded))]))
 
-(w/helper (+ 1 2))
+(module+ test (check-values (w/helper (+ 1 2))))
 ;(w/helper (+ (if #f 3 4) 5))
