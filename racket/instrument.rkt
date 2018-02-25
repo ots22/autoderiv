@@ -13,22 +13,24 @@
   (displayln form)
   form)
 
-
-
 ;; tape-helper works on expanded forms
 (define-for-syntax (tape-helper stx)
   (syntax-parse stx #:literals (#%plain-app quote)
     [(#%plain-app f args ...)
      (with-syntax ([(transformed-args ...)
                     (map tape-helper (syntax->list #'(args ...)))])
-       #'(add-to-tape (f transformed-args ...)))]
+       #'(trace f (f transformed-args ...)))]
+
+    [(quote arg) #'(trace 'value arg)]
     
     [(args ...) (with-syntax ([(transformed-args ...)
                                (map tape-helper (syntax->list #'(args ...)))])
-                  #'(transformed-args ...))] ;; don't recurse down anything else
+                  (displayln (syntax-local-context))
+                  #'(trace 'other (transformed-args ...)))]
 
-    [(quote arg:number) #'(add-to-tape 'value arg)]
-    [arg #'arg] ;; ignore anything else
+    [arg #'arg] ;; anything else
+    
+    ;[arg #'arg] ;; ignore anything else
     ;; literals
     ;[(_ (arg0 rest ...)) #'((tape-helper arg0) (tape-helper ...)] ;; descend into lists
     ;[(_ args ...) #'(args ...)] ;; ignore everything else
@@ -41,8 +43,12 @@
     [(_ a) (let ([expanded (local-expand #'a 'expression '())])
              (tape-helper expanded))]))
 
-;(w/helper (+ 1 2))
-(w/helper (if #f (+ 1 2) (* (* (* 2 (if (= 0 0) 2 1) 2) 2))))
+
+
+(w/helper (+ (if 1 2 3) 2))
+(w/helper 1)
+;(w/helper (let ((x 1)) 1))
+;(w/helper (if #f (+ 1 2) (* (* (* 2 (if (+ (+ 2 1) 1) 2 3) 2) 2))))
 ;(w/helper ((if #t * +) 5 5))
 ;(w/helper '(a b c))
 ;(module+ test (check-values (w/helper (+ 1 2))))
