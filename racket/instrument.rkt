@@ -3,7 +3,9 @@
          syntax/parse
          rackunit
          "trace.rkt"
+         "binding-tree.rkt"
          (for-syntax
+           "binding-tree.rkt"
            racket
            racket/syntax
            syntax/parse
@@ -64,16 +66,27 @@
        (syntax/loc stx (begin expr0* expr ...)))]
 
      ;; Note: don't handle multiple values
-    [(let-values ([(id) def-expr] ...)
+    ;[(let-values ([(id) def-expr] ...)
+    ;   body-expr ...)
+    ; (with-syntax ([(def-expr* ...)
+    ;                (map tape-helper (syntax->list #'(def-expr ...)))]
+    ;               [(body-expr* ...)
+    ;                (map tape-helper
+    ;                     (syntax->list (syntax/loc stx (body-expr ...))))])
+    ;   (syntax/loc stx
+    ;     (#%plain-app (#%plain-lambda (id ...) body-expr* ...)
+    ;                  def-expr* ...)))]
+    [(let-values ([(id) def-expr])
        body-expr ...)
-     (with-syntax ([(def-expr* ...)
-                    (map tape-helper (syntax->list #'(def-expr ...)))]
+     (with-syntax ([def-expr*
+                     #`(parameterize ([current-trace '()])
+                         (begin0 #,(tape-helper #'def-expr)
+                                 (annotation id (current-trace))))]
                    [(body-expr* ...)
                     (map tape-helper
-                         (syntax->list (syntax/loc stx (body-expr ...))))])
+                         (syntax->list #'(body-expr ...)))])
        (syntax/loc stx
-         (#%plain-app (#%plain-lambda (id ...) body-expr* ...)
-                      def-expr* ...)))]
+         (let-values ([(id) def-expr*]) body-expr* ...)))]
 
     ;; Missing: letrec
 
@@ -100,7 +113,10 @@
     [(%#expression expr)
      (tape-helper (syntax/loc stx expr))]
 
-    [id #'(trace 'id id)])) ;; anything else...assume it is a binding
+    ;; retrieve the subtree for the given id
+    [id (syntax/loc stx
+          (begin (current-trace (cons (get-annotation id) (current-trace)))
+                 id))]))
 
 (define-syntax (w/helper stx)
   (syntax-case stx ()
@@ -120,6 +136,10 @@
 ;(w/helper (let-values (((x) (+ 1 2))) x))
 
 (let-values (((x) (+ 1 2))) x)
+;; this is fine:
+(w/helper (let ([y (+ 1 3)]) (let ((x 5)) (+ x x))))
+;; this produces "identifier's binding is ambiguous", but works when manually expanding - probably need to think carefully about context etc
+(w/helper (let ([y (+ 1 3)]) (let ((x 5)) (+ x x))))
 
 ;(and 1 2)
 ;(w/helper 1)

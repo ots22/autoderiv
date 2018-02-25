@@ -4,9 +4,12 @@
 
 (provide trace
          current-trace
+         parent-params
          node?
          node-label
-         node-value)
+         node-value
+         trace-append
+         trace-append/label)
 
 (define current-trace (make-parameter '()))
 (define parent-params (make-parameter '()))
@@ -45,8 +48,7 @@
             [parent-params (current-parameterization)])
          (let ([result (trace-append/label fn expr)])
            (let ([subexpr-trace (current-trace)])
-             (call-with-parameterization
-              (parent-params)
+             (call-with-parameterization (parent-params)
               (lambda () (trace-append subexpr-trace))))
            result))]))
 
