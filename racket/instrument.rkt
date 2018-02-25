@@ -34,15 +34,20 @@
 
 (define-for-syntax (tape-helper stx)
   (kernel-syntax-case stx #f
-    [(#%plain-app f args ...)
-     (with-syntax ([(args* ...)
-                    (map tape-helper (syntax->list #'(args ...)))])
-       (syntax/loc stx (trace f (f args* ...))))]
+    [(%#expression expr)
+     (tape-helper (syntax/loc stx expr))]
 
-    [(quote form)
-     (syntax/loc stx
-       (trace 'value (quote form)))]
+    [(#%plain-lambda formals body ... bodyn)
+     (with-syntax ([bodyn* (tape-helper #'bodyn)])
+       (syntax/loc stx
+         (#%plain-lambda formals body ... bodyn*)))]
 
+    [(case-lambda [formals body ... bodyn] ...)
+     (with-syntax ([(bodyn* ...)
+                    (map tape-helper (syntax->list #'(bodyn ...)))])
+       (syntax/loc stx
+         (case-lambda [formals body ... bodyn*] ...)))]
+    
     [(if pred
          true-expr
          false-expr)
@@ -52,10 +57,7 @@
          (if pred
              true-expr*
              false-expr*)))]
-
-    [(%#expression expr)
-     (tape-helper #'expr)]
-
+    
     [(begin expr ... exprn)
      (with-syntax ([exprn* (tape-helper #'exprn)])
        (syntax/loc stx (begin expr ... exprn*)))]
@@ -64,34 +66,34 @@
      (with-syntax ([expr0* (tape-helper #'expr0)])
        (syntax/loc stx (begin expr0* expr ...)))]
 
+     ;; Note: don't handle multiple values
+    [(let-values ([(id) def-expr] ...)
+       body-expr ...)
+     (tape-helper
+      (syntax/loc stx
+        ((lambda (id ...) body-expr ...) def-expr ...)))]
+
+    ;; Missing: letrec
+
+    ;; Missing: set!
+
+    [(quote form)
+     (syntax/loc stx
+       (trace 'value (quote form)))]
+
     [(quote-syntax expr) stx]
-
-    [(let-values ([(id ...) expr0] ...)
-       expr1 ...)
-     (with-syntax ([(expr0* ...)
-                    (map tape-helper (syntax->list #'(expr0 ...)))])
-       (syntax/loc stx
-         (let-values ([(id ...) expr0] ...)
-           expr1 ...)))]
-
-    ;[(let-values ([(id ...) expr0] ...)
-    ;   expr1 ...) stx]
-
-    [(#%plain-lambda formals body ... bodyn)
-     (with-syntax ([bodyn* (tape-helper #'bodyn)])
-       (syntax/loc stx
-         (#%plain-lambda formals body ... body*)))]
-
-    ;;[(case-lambda [] ) ???]
-
-    ;;[(letrec-values ([(id ...) expr0] ...)
-    ;;   expr1 ...+)
-    ;; ???]
     
+    [(quote-syntax expr #:local) stx]
+
     [(with-continuation-mark key-expr val-expr result-expr)
      (with-syntax ([result-expr* (tape-helper #'result-expr)])
        (syntax/loc stx (with-continuation-mark key-expr val-expr result-expr*)))]
-    ))
+    
+    [(#%plain-app f args ...)
+     (with-syntax ([(args* ...)
+                    (map tape-helper
+                         (syntax->list #'(args ...)))])
+       (syntax/loc stx (trace f (f args* ...))))]))
 
 ;(tape-helper #'(#%plain-app + (#%plain-app + 1 1) 2))
 
