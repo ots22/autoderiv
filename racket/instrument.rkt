@@ -34,9 +34,6 @@
 
 (define-for-syntax (tape-helper stx)
   (kernel-syntax-case stx #f
-    [(%#expression expr)
-     (tape-helper (syntax/loc stx expr))]
-
     [(#%plain-lambda formals body ... bodyn)
      (with-syntax ([bodyn* (tape-helper #'bodyn)])
        (syntax/loc stx
@@ -69,9 +66,14 @@
      ;; Note: don't handle multiple values
     [(let-values ([(id) def-expr] ...)
        body-expr ...)
-     (tape-helper
-      (syntax/loc stx
-        ((lambda (id ...) body-expr ...) def-expr ...)))]
+     (with-syntax ([(def-expr* ...)
+                    (map tape-helper (syntax->list #'(def-expr ...)))]
+                   [(body-expr* ...)
+                    (map tape-helper
+                         (syntax->list (syntax/loc stx (body-expr ...))))])
+       (syntax/loc stx
+         (#%plain-app (#%plain-lambda (id ...) body-expr* ...)
+                      def-expr* ...)))]
 
     ;; Missing: letrec
 
@@ -93,24 +95,31 @@
      (with-syntax ([(args* ...)
                     (map tape-helper
                          (syntax->list #'(args ...)))])
-       (syntax/loc stx (trace f (f args* ...))))]))
+       (syntax/loc stx (trace f (f args* ...))))]
 
-;(tape-helper #'(#%plain-app + (#%plain-app + 1 1) 2))
+    [(%#expression expr)
+     (tape-helper (syntax/loc stx expr))]
+
+    [id #'(trace 'id id)])) ;; anything else...assume it is a binding
 
 (define-syntax (w/helper stx)
   (syntax-case stx ()
     [(_ a) (let ([expanded (local-expand #'a 'expression '())])
              (tape-helper expanded))]))
 
-
-;(w/helper (+ 1 2 3))
-;(w/helper (+ (if 1 2 3) 2))
-;(w/helper (+ (and 1 2 3) (and 2 3 4)))
+;(w/helper (let ([x (+ 1 3)]) (+ x x)))
+(w/helper 1)
+(w/helper (quote 1))
+(w/helper (+ 1 2 3))
+(w/helper (+ (if 1 2 3) 2))
+(w/helper (+ (and 1 2 3) (and 2 3 4)))
 ;(define a (w/helper (+ (and 1 2 3) (and 2 3 4))))
-;(w/helper (begin0 1 2 3))
+(w/helper (begin0 1 2 3))
 
 ;(w/helper (let ((x (+ 1 2))) x))
-(w/helper (let-values (((x) (+ 1 2))) x))
+;(w/helper (let-values (((x) (+ 1 2))) x))
+
+(let-values (((x) (+ 1 2))) x)
 
 ;(and 1 2)
 ;(w/helper 1)
