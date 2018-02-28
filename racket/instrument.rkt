@@ -78,14 +78,30 @@
     ;   (syntax/loc stx
     ;     (#%plain-app (#%plain-lambda (id ...) body-expr* ...)
     ;                  def-expr* ...)))]
+    [(let-values ([(id) def-expr])
+       body-expr ...)
+     ;; introduce new binding here (def-expr-trace)
+     ;; ...
+     (with-syntax ([def-expr* (tape-helper #'def-expr)]
+                   [(body-expr* ...) (map tape-helper (syntax->list #'(body-expr ...)))])
+       (syntax/loc stx
+         (letrec-values ([(def-expr-result def-expr-trace)
+                          (parameterize ([current-trace '()])
+                            (let ((def-expr-val def-expr*))
+                              (values def-expr-val (current-trace))))])
+           (let-values ([(id) def-expr-result])
+             (annotation id def-expr-trace)
+             body-expr* ...))))]
+
+
     [(letrec-values ([(id) def-expr])
        body-expr ...)
      (with-syntax* ([def-expr* (tape-helper #'def-expr)]
                     [def-expr**
-                      (syntax/loc stx (parameterize ([current-trace '()])
-                                        (begin0 def-expr*
-                                                (annotation id (current-trace))
-                                                )))]
+                      #'(parameterize ([current-trace '()])
+                          (begin0 def-expr*
+                                  (annotation id (current-trace))
+                                  ))]
                     [(body-expr* ...)
                      (map tape-helper
                           (syntax->list (syntax/loc stx (body-expr ...))))])
@@ -95,8 +111,6 @@
        (syntax/loc stx
          (letrec ([id def-expr**]) body-expr* ...)))
      ]
-
-    ;; Missing: letrec
 
     ;; Missing: set!
 
@@ -136,24 +150,24 @@
     [(_ a) (tape-helper #'a)]))
 
 ;(w/helper (let ([x (+ 1 3)]) (+ x x)))
-(w/helper 1)
-(w/helper (quote 1))
-(w/helper (+ 1 2 3))
-(w/helper (+ (if 1 2 3) 2))
-(w/helper (+ (and 1 2 3) (and 2 3 4)))
+;(w/helper 1)
+;(w/helper (quote 1))
+;(w/helper (+ 1 2 3))
+;(w/helper (+ (if 1 2 3) 2))
+;(w/helper (+ (and 1 2 3) (and 2 3 4)))
 ;(define a (w/helper (+ (and 1 2 3) (and 2 3 4))))
-(w/helper (begin0 1 2 3))
+;(w/helper (begin0 1 2 3))
 
 ;(w/helper (let ((x (+ 1 2))) x))
 ;(w/helper (let-values (((x) (+ 1 2))) x))
 
-(let-values (((x) (+ 1 2))) x)
+;(let-values (((x) (+ 1 2))) x)
 ;; this is fine:
-(w/helper (letrec ([y (+ 1 3)])
-            (letrec ((x 5)) (+ x x))))
+;(w/helper (letrec ([y (+ 1 3)])
+;            (letrec ((x 5)) (+ x x))))
 ;; this produces "identifier's binding is ambiguous", but works when manually expanding - probably need to think carefully about context etc
-(w/helper (letrec ([x (+ 1 3)])
-            (letrec ((x 5)) (+ x x))))
+(w/helper (let ([x (+ 1 3)])
+            (let ((x 5)) (+ x x))))
 ;(no-expand (let-values (((x) (+ 1 3)))
 ;             (let-values (((x) 5))
 ;               (+ x x))))
