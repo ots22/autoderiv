@@ -7,6 +7,8 @@
            racket/syntax
            syntax/kerncase))
 
+(provide instrument)
+
 (define-for-syntax (instrument-expanded stx)
   (kernel-syntax-case stx #f
     [(#%plain-lambda formals body ... bodyn)
