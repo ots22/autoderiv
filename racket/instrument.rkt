@@ -13,29 +13,6 @@
            syntax/kerncase
            syntax/strip-context))
 
-;; print each intermediate function evaluation
-(define (add-to-tape form)
-  (displayln form)
-  form)
-
-;; tape-helper works on expanded forms
-;(define-for-syntax (tape-helper stx)
-;  (syntax-parse stx #:literals (#%plain-app quote)
-;    [(#%plain-app f args ...)
-;     (with-syntax ([(transformed-args ...)
-;                    (map tape-helper (syntax->list #'(args ...)))])
-;       #'(trace f (f transformed-args ...)))]
-;
-;    [(quote arg) #'(trace 'value arg)]
-;    
-;    [(args ...) (with-syntax ([(transformed-args ...)
-;                               (map tape-helper (syntax->list #'(args ...)))])
-;                  (displayln (syntax-local-context))
-;                  #'(trace 'other (transformed-args ...)))]
-;
-;    [arg #'arg] ;; anything else
-;    ))
-
 (define-for-syntax (tape-helper stx)
   (kernel-syntax-case stx #f
     [(#%plain-lambda formals body ... bodyn)
@@ -67,21 +44,8 @@
      (with-syntax ([expr0* (tape-helper #'expr0)])
        (syntax/loc stx (begin expr0* expr ...)))]
 
-     ;; Note: don't handle multiple values
-    ;[(let-values ([(id) def-expr] ...)
-    ;   body-expr ...)
-    ; (with-syntax ([(def-expr* ...)
-    ;                (map tape-helper (syntax->list #'(def-expr ...)))]
-    ;               [(body-expr* ...)
-    ;                (map tape-helper
-    ;                     (syntax->list (syntax/loc stx (body-expr ...))))])
-    ;   (syntax/loc stx
-    ;     (#%plain-app (#%plain-lambda (id ...) body-expr* ...)
-    ;                  def-expr* ...)))]
     [(let-values ([(id) def-expr])
        body-expr ...)
-     ;; introduce new binding here (def-expr-trace)
-     ;; ...
      (with-syntax ([def-expr* (tape-helper #'def-expr)]
                    [(body-expr* ...) (map tape-helper (syntax->list #'(body-expr ...)))])
        (syntax/loc stx
@@ -92,7 +56,6 @@
            (let-values ([(id) def-expr-result])
              (annotation id def-expr-trace)
              body-expr* ...))))]
-
 
     [(letrec-values ([(id) def-expr])
        body-expr ...)
@@ -105,12 +68,8 @@
                     [(body-expr* ...)
                      (map tape-helper
                           (syntax->list (syntax/loc stx (body-expr ...))))])
-     ; (with-syntax ([def-expr* #`(begin0 def-expr
-     ;                                   (annotation id (current-trace)))]
-     ;              [(body-expr* ...) (map tape-helper (syntax->list #'(body-expr ...)))])
        (syntax/loc stx
-         (letrec ([id def-expr**]) body-expr* ...)))
-     ]
+         (letrec ([id def-expr**]) body-expr* ...)))]
 
     ;; Missing: set!
 
@@ -135,7 +94,7 @@
     [(%#expression expr)
      (tape-helper (syntax/loc stx expr))]
 
-    ;; retrieve the subtree for the given id
+    ;; Retrieve the subtree for the given id and append to current-trace
     [id (syntax/loc stx
           (begin (current-trace (cons (get-annotation id) (current-trace)))
                  id))]))
@@ -144,10 +103,6 @@
   (syntax-case stx ()
     [(_ a) (let ([expanded (local-expand #'a 'expression '())])
              (tape-helper expanded))]))
-
-(define-syntax (no-expand stx)
-  (syntax-case stx ()
-    [(_ a) (tape-helper #'a)]))
 
 ;(w/helper (let ([x (+ 1 3)]) (+ x x)))
 ;(w/helper 1)
@@ -165,9 +120,9 @@
 ;; this is fine:
 ;(w/helper (letrec ([y (+ 1 3)])
 ;            (letrec ((x 5)) (+ x x))))
-;; this produces "identifier's binding is ambiguous", but works when manually expanding - probably need to think carefully about context etc
+
 (w/helper (let ([x (+ 1 3)])
-            (let ((x 5)) (+ x x))))
+            (let-values (((x) 5)) (+ x x))))
 ;(no-expand (let-values (((x) (+ 1 3)))
 ;             (let-values (((x) 5))
 ;               (+ x x))))
