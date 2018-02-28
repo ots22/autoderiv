@@ -1,17 +1,11 @@
 #lang racket
-(require racket/syntax
-         syntax/parse
-         rackunit
+(require rackunit
          "trace.rkt"
          "binding-trace.rkt"
          (for-syntax
-          "trace.rkt"
-          "binding-trace.rkt"
            racket
            racket/syntax
-           syntax/parse
-           syntax/kerncase
-           syntax/strip-context))
+           syntax/kerncase))
 
 (define-for-syntax (tape-helper stx)
   (kernel-syntax-case stx #f
