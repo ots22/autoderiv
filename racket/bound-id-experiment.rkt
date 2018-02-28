@@ -1,6 +1,6 @@
 #lang racket
 (require "trace.rkt"
-         "binding-tree.rkt")
+         "binding-trace.rkt")
 
 (let-values ([(x)
               (parameterize

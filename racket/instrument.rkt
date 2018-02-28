@@ -3,13 +3,15 @@
          syntax/parse
          rackunit
          "trace.rkt"
-         "binding-tree.rkt"
+         "binding-trace.rkt"
          (for-syntax
-           "binding-tree.rkt"
+          "trace.rkt"
+          "binding-trace.rkt"
            racket
            racket/syntax
            syntax/parse
-           syntax/kerncase))
+           syntax/kerncase
+           syntax/strip-context))
 
 ;; print each intermediate function evaluation
 (define (add-to-tape form)
@@ -76,17 +78,23 @@
     ;   (syntax/loc stx
     ;     (#%plain-app (#%plain-lambda (id ...) body-expr* ...)
     ;                  def-expr* ...)))]
-    [(let-values ([(id) def-expr])
+    [(letrec-values ([(id) def-expr])
        body-expr ...)
-     (with-syntax ([def-expr*
-                     #`(parameterize ([current-trace '()])
-                         (begin0 #,(tape-helper #'def-expr)
-                                 (annotation id (current-trace))))]
-                   [(body-expr* ...)
-                    (map tape-helper
-                         (syntax->list #'(body-expr ...)))])
+     (with-syntax* ([def-expr* (tape-helper #'def-expr)]
+                    [def-expr**
+                      (syntax/loc stx (parameterize ([current-trace '()])
+                                        (begin0 def-expr*
+                                                (annotation id (current-trace))
+                                                )))]
+                    [(body-expr* ...)
+                     (map tape-helper
+                          (syntax->list (syntax/loc stx (body-expr ...))))])
+     ; (with-syntax ([def-expr* #`(begin0 def-expr
+     ;                                   (annotation id (current-trace)))]
+     ;              [(body-expr* ...) (map tape-helper (syntax->list #'(body-expr ...)))])
        (syntax/loc stx
-         (let-values ([(id) def-expr*]) body-expr* ...)))]
+         (letrec ([id def-expr**]) body-expr* ...)))
+     ]
 
     ;; Missing: letrec
 
@@ -123,6 +131,10 @@
     [(_ a) (let ([expanded (local-expand #'a 'expression '())])
              (tape-helper expanded))]))
 
+(define-syntax (no-expand stx)
+  (syntax-case stx ()
+    [(_ a) (tape-helper #'a)]))
+
 ;(w/helper (let ([x (+ 1 3)]) (+ x x)))
 (w/helper 1)
 (w/helper (quote 1))
@@ -137,9 +149,14 @@
 
 (let-values (((x) (+ 1 2))) x)
 ;; this is fine:
-(w/helper (let ([y (+ 1 3)]) (let ((x 5)) (+ x x))))
+(w/helper (letrec ([y (+ 1 3)])
+            (letrec ((x 5)) (+ x x))))
 ;; this produces "identifier's binding is ambiguous", but works when manually expanding - probably need to think carefully about context etc
-(w/helper (let ([y (+ 1 3)]) (let ((x 5)) (+ x x))))
+(w/helper (letrec ([x (+ 1 3)])
+            (letrec ((x 5)) (+ x x))))
+;(no-expand (let-values (((x) (+ 1 3)))
+;             (let-values (((x) 5))
+;               (+ x x))))
 
 ;(and 1 2)
 ;(w/helper 1)
