@@ -2,11 +2,14 @@
 (require rackunit
          "util.rkt")
 
-(provide trace
+(provide trace-value
+         trace-call
+         trace-var
          current-trace
          parent-params
          node?
          node-label
+         node-type
          node-value
          trace-append
          trace-append/label)
@@ -15,38 +18,60 @@
 (define parent-params (make-parameter '()))
 
 (define (node? x)
-  (and (pair? x)
-       (atom? (car x))
-       (atom? (cdr x))))
+  (and (list? x)
+       (>= (length x) 2)
+       (or (eq? (cadr x) 'value)
+           (eq? (cadr x) 'proc)
+           (eq? (cadr x) 'var))))
 
-(define/contract (make-node label value)
-  (atom? atom? . -> . node?)
-  (cons label value))
+(define (make-node value type . label)
+  (append (list value type) label))
 
-(define/contract (node-label node)
-  (node? . -> . atom?)
-  (car node))
+(define (node-value node) (first node))
+(define (node-type node) (second node))
+(define (node-label node) (third node))
 
-(define/contract (node-value node)
-  (node? . -> . atom?)
-  (cdr node))
+(define (trace-append value)
+  (current-trace (cons value (current-trace)))
+  value)
 
-(define (trace-append val)
-  (current-trace (cons val (current-trace)))
-  val)
-
-(define (trace-append/label label val)
-  (current-trace (cons (make-node label val)
+(define (trace-append/label value . rest)
+  (current-trace (cons (apply make-node value rest)
                        (current-trace)))
-  val)
+  value)
 
-(define-syntax (trace stx)
+(define-syntax (trace-value stx)
   (syntax-case stx ()
-    [(_ fn expr)
+    [(_ expr)
      #'(parameterize
            ([current-trace '()]
             [parent-params (current-parameterization)])
-         (let ([result (trace-append/label fn expr)])
+         (let ([result (trace-append/label expr 'value)])
+           (let ([subexpr-trace (current-trace)])
+             (call-with-parameterization (parent-params)
+              (lambda () (trace-append subexpr-trace))))
+           result))]))
+
+(define-syntax (trace-call stx)
+  (syntax-case stx ()
+    [(_ fn args ...)
+     #'(parameterize
+           ([current-trace '()]
+            [parent-params (current-parameterization)])
+         (let* ([fn-once fn] ;; since fn might be an expression that evaluates to a function
+                [result (trace-append/label (fn-once args ...) 'proc fn-once)])
+           (let ([subexpr-trace (current-trace)])
+             (call-with-parameterization (parent-params)
+              (lambda () (trace-append subexpr-trace))))
+           result))]))
+
+(define-syntax (trace-var stx)
+  (syntax-case stx ()
+    [(_ expr)
+     #'(parameterize
+           ([current-trace '()]
+            [parent-params (current-parameterization)])
+         (let ([result (trace-append/label expr 'var 'expr)])
            (let ([subexpr-trace (current-trace)])
              (call-with-parameterization (parent-params)
               (lambda () (trace-append subexpr-trace))))
@@ -55,22 +80,20 @@
 (module+ test
   (test-begin
    (parameterize ([current-trace '()])
-     (let ([actual-value (trace + (+ (trace 'value 3)
-                                     (trace 'value 5)))]
+     (let ([actual-value (trace-call + (trace-value 3)
+                                       (trace-value 5))]
            [expected-value 8]
-           [expected-trace `(((,+ . 8) ((value . 5))
-                                       ((value . 3))))])
+           [expected-trace `(((8 proc ,+) ((5 value))
+                                       ((3 value))))])
        (check-equal? actual-value expected-value)
        (check-equal? (current-trace) expected-trace))))
 
   (test-begin
    (parameterize ([current-trace '()])
-     (let ([actual-value (trace + (+ (trace * (* (trace 'value 3)
-                                                 (trace 'value 2)))
-                                     (trace 'value 1)))]
+     (let ([actual-value (trace-call + (trace-call * (trace-value 3) (trace-value 2)) (trace-value 1))]
            [expected-value 7]
-           [expected-trace `(((,+ . 7) ((value . 1))
-                                       ((,* . 6) ((value . 2))
-                                                 ((value . 3)))))])
+           [expected-trace `(((7 proc ,+) ((1 value))
+                                       ((6 proc ,*) ((2 value))
+                                                 ((3 value)))))])
        (check-equal? actual-value expected-value)
        (check-equal? (current-trace) expected-trace)))))

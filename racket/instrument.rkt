@@ -71,7 +71,7 @@
 
     [(quote form)
      (syntax/loc stx
-       (trace 'value (quote form)))]
+       (trace-value (quote form)))]
 
     [(quote-syntax expr) stx]
     
@@ -85,14 +85,16 @@
      (with-syntax ([(args* ...)
                     (map instrument-expanded
                          (syntax->list #'(args ...)))])
-       (syntax/loc stx (trace f (f args* ...))))]
+       (syntax/loc stx (trace-call f args* ...)))]
 
     [(%#expression expr)
      (instrument-expanded (syntax/loc stx expr))]
 
     ;; Retrieve the subtree for the given id and append to current-trace
     [id (syntax/loc stx
-          (begin (current-trace (cons (get-annotation id) (current-trace)))
+          (begin (if (has-annotation? id)
+                  (current-trace (cons (get-annotation id) (current-trace)))
+                  (trace-var id))
                  id))]))
 
 (define-syntax (instrument stx)
@@ -120,3 +122,7 @@
 (instrument ((if #t * +) 5 5))
 ;(w/helper '(a b c)) ;; => exception
 (instrument (+ (if #f 3 4) 5))
+(let ((x 1) (y 2)) (instrument (+ x y)))
+(let ((x 1) (y 2) (z 3))
+  (instrument
+   (+ x (* y z))))

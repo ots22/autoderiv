@@ -13,10 +13,10 @@
         [else p]))
 
 (define (node-pict node)
-  (let ((label (node-label node))
+  (let ((type (node-type node))
         (value (node-value node)))
-    (if (procedure? label)
-        (code #,(procname label) (code:comment #,(format "=> ~a" value)))
+    (if (eq? type 'proc)
+        (code #,(procname (node-label node)) (code:comment #,(format "=> ~a" value)))
         (code #,value))))
 
 (define (render-trace tree)
@@ -33,8 +33,8 @@
    [else (map render-trace tree)]))
 
 (define (render-example)
-  (let ([eg-tree `(((,+ . 5)
-                    ((value . 2)) ((value . 3))))])
+  (let ([eg-tree `(((5 proc ,+)
+                    ((2 value)) ((3 value))))])
     (scale-to-fit
      (naive-layered (car (render-trace eg-tree)))
      300 200)))

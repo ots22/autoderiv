@@ -5,14 +5,14 @@
 
 (define (fact n)
   (if (= n 0)
-      (trace 'value 1)
-      (trace * (* (trace 'value n)
-                  (trace fact (fact (trace - (- n 1))))))))
+      (trace-value 1)
+      (trace-call * (trace-value n)
+                    (trace-call fact (trace-call - (- n 1))))))
 
 (define (sin-iter x n)
   (if (= n 0)
-      (trace 'value x)
-      (trace sin-iter (sin-iter (trace sin (sin x)) (trace - (- n 1))))))
+      (trace-value x)
+      (trace-call sin-iter (trace-call sin x) (trace-call - n 1))))
 
-(trace sin-iter (sin-iter (trace 'value 1.0) (trace 'value 3)))
-(naive-layered (car (draw-graph (current-trace))))
+(trace-call sin-iter (trace-value 1.0) (trace-value 3))
+(naive-layered (car (render-trace (current-trace))))

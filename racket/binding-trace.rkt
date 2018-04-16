@@ -6,7 +6,8 @@
            syntax/id-table))
 
 (provide annotation
-         get-annotation)
+         get-annotation
+         has-annotation?)
 
 (define binding->trace (make-parameter (make-bound-id-table)))
 
@@ -17,3 +18,9 @@
 (define-syntax (get-annotation stx)
   (syntax-case stx ()
     [(_ id) #'(bound-id-table-ref (binding->trace) #'id)]))
+
+(define-syntax (has-annotation? stx)
+  (syntax-case stx ()
+    [(_ id) #'(let ([found #t])
+                (bound-id-table-ref (binding->trace) #'id (lambda () (set! found #f)))
+                found)]))
