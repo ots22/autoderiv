@@ -62,7 +62,7 @@
                         [args (map (compose node-value car) (cdr t))]
                         ;; the arguments are in reverse order in the tree
                         [indices (reverse (0->n (length args)))]
-                        [partials (map (lambda (n) (apply ((∂ n) proc) args)) indices)])
+                        [partials (reverse (map (lambda (n) (apply ((∂ n) proc) args)) indices))])
                    (map (lambda (partial subtree) (derivative-from-trace subtree (* seed partial)))
                         partials (cdr t)))]
                 [else (map derivative-from-trace t seed)]))])
