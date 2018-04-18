@@ -11,8 +11,11 @@
 
 (define (sin-iter x n)
   (if (= n 0)
-      (trace-value x)
-      (trace-call sin-iter (trace-call sin x) (trace-call - n 1))))
+      x
+      (trace-call sin-iter (trace-call sin x) (- n 1))))
 
-(trace-call sin-iter (trace-value 1.0) (trace-value 3))
+(trace-value (sin-iter (trace-value 1.0) 3))
+(naive-layered (car (render-trace (current-trace))))
+
+(trace-call sin (trace-call sin (trace-call sin 1.0)))
 (naive-layered (car (render-trace (current-trace))))

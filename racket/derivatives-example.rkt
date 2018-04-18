@@ -16,27 +16,37 @@
 ;  (grad t))
 
 
+;
+;(parameterize ((current-trace '()))
+;  (let ((x 1)
+;        (y 2)
+;        (z 3))
+;    (instrument
+;     (+ x (* y z)))
+;    (grad (car (current-trace)))))
+;
+;(parameterize ((current-trace '()))
+;  (let ((x 1)
+;        (y 2))
+;    (instrument
+;     (+ (* x y) (sin x)))
+;    (grad (car (current-trace)))))
+;
+;(current-trace '())
+;(let ((x 1))
+;  (instrument
+;   (letrec ((g (lambda (x n) (if (= n 0) x (g (+ x x) (- n 1))))))
+;     (let ((res (g x 2)))
+;       res))))
+;(car (current-trace))
 
-(parameterize ((current-trace '()))
-  (let ((x 1)
-        (y 2)
-        (z 3))
-    (instrument
-     (+ x (* y z)))
-    (grad (car (current-trace)))))
-
-(parameterize ((current-trace '()))
-  (let ((x 1)
-        (y 2))
-    (instrument
-     (+ (* x y) (sin x)))
-    (grad (car (current-trace)))))
 
 (current-trace '())
 (let ((x 1))
   (instrument
-   (letrec ((g (lambda (x n) (if (= n 0) x (g (+ x x) (- n 1))))))
-     (let ((res (g x 2)))
-       res))))
-
+   (let* ((y 5)
+         (f (lambda (x) (sin x)))
+         (z (f y)))
+     (+ x z))))
+(grad (car (current-trace)))
         

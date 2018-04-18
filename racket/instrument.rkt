@@ -40,6 +40,7 @@
      (with-syntax ([expr0* (instrument-expanded #'expr0)])
        (syntax/loc stx (begin expr0* expr ...)))]
 
+    ;; TODO: multiple bindings in let-values
     [(let-values ([(id) def-expr])
        body-expr ...)
      (with-syntax ([def-expr* (instrument-expanded #'def-expr)]
@@ -53,6 +54,7 @@
              (annotation id def-expr-trace)
              body-expr* ...))))]
 
+    ;; TODO: multiple bindings in letrec-values
     [(letrec-values ([(id) def-expr])
        body-expr ...)
      (with-syntax* ([def-expr* (instrument-expanded #'def-expr)]
@@ -112,8 +114,9 @@
 ;(instrument (begin0 1 2 3))
 ;(instrument (let ((x (+ 1 2))) x))
 ;(instrument (let-values (((x) (+ 1 2))) x))
-;(instrument (letrec ([y (+ 1 3)])
+;(instrument (letrec ([y (+ 1 3)] [z 3])
 ;            (letrec ((x 5)) (+ x x))))
+(instrument (let* ([y (+ 1 3)] [z 3]) (+ y z)))
 ;(instrument (let ([x (+ 1 3)])
 ;            (let-values (((x) 5)) (+ x x))))
 ;(instrument 1)
