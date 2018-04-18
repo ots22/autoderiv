@@ -93,7 +93,7 @@
     ;; Retrieve the subtree for the given id and append to current-trace
     [id (syntax/loc stx
           (begin (if (has-annotation? id)
-                  (current-trace (cons (get-annotation id) (current-trace)))
+                  (current-trace (append (get-annotation id) (current-trace)))
                   (trace-var id))
                  id))]))
 
