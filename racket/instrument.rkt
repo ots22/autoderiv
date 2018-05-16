@@ -104,28 +104,69 @@
     [(_ a) (let ([expanded (local-expand #'a 'expression '())])
              (instrument-expanded expanded))]))
 
-;; Turn these into tests:
-;(instrument (let ([x (+ 1 3)]) (+ x x)))
-;(instrument 1)
-;(instrument (quote 1))
-;(instrument (+ 1 2 3))
-;(instrument (+ (if 1 2 3) 2))
-;(instrument (+ (and 1 2 3) (and 2 3 4)))
-;(instrument (begin0 1 2 3))
-;(instrument (let ((x (+ 1 2))) x))
-;(instrument (let-values (((x) (+ 1 2))) x))
-;(instrument (letrec ([y (+ 1 3)] [z 3])
-;            (letrec ((x 5)) (+ x x))))
-(instrument (let* ([y (+ 1 3)] [z 3]) (+ y z)))
-;(instrument (let ([x (+ 1 3)])
-;            (let-values (((x) 5)) (+ x x))))
-;(instrument 1)
-;(instrument (let ((x 1)) 1))
-;(instrument (if #f (+ 1 2) (* (* (* 2 (if (+ (+ 2 1) 1) 2 3) 2) 2))))
-;(instrument ((if #t * +) 5 5))
-;;(w/helper '(a b c)) ;; => exception
-;(instrument (+ (if #f 3 4) 5))
-;(let ((x 1) (y 2)) (instrument (+ x y)))
-;(let ((x 1) (y 2) (z 3))
-;  (instrument
-;   (+ x (* y z))))
+(define-syntax (value-and-trace stx)
+  (syntax-case stx ()
+    [(_ body) #'(parameterize ((current-trace '()))
+                (println body)
+                (println (current-trace)))]))
+
+(module+ test
+  (check-result-and-trace 8
+                         `(((8 proc ,+) ((4 proc ,+) ((3 value)) ((1 value))) ((4 proc ,+) ((3 value)) ((1 value)))))
+   (instrument (let ([x (+ 1 3)]) (+ x x))))
+
+
+  (check-result-and-trace 1 '(((1 value)))
+   (instrument 1))
+
+  (check-result-and-trace 1 '(((1 value)))
+   (instrument (quote 1)))
+
+  (check-result-and-trace 6 `(((6 proc ,+) ((3 value)) ((2 value)) ((1 value))))
+   (instrument (+ 1 2 3)))
+
+  (check-result-and-trace 4 `(((4 proc ,+) ((2 value)) ((2 value))))
+   (instrument (+ (if 1 2 3) 2)))
+
+  (check-result-and-trace 7 `(((7 proc ,+) ((4 value)) ((3 value))))
+   (instrument (+ (and 1 2 3) (and 2 3 4))))
+
+  (check-result-and-trace 1 `(((1 value)))
+   (instrument (begin0 1 2 3)))
+
+  (check-result-and-trace 3 `(((3 proc ,+) ((2 value)) ((1 value))))
+   (instrument (let ((x (+ 1 2))) x)))
+
+  (check-result-and-trace 3 `(((3 proc ,+) ((2 value)) ((1 value))))
+   (instrument (let-values (((x) (+ 1 2))) x)))
+
+  ;;; multiple let bindings -- not yet implemented
+  ;;(check-result-and-trace 10 `(((10 proc ,+) ((5 value)) ((5 value))))
+  ;; (instrument (letrec ([y (+ 1 3)] [z 3])
+  ;;               (letrec ((x 5)) (+ x x)))))
+  ;;
+  ;;(check-result-and-trace 7 `(((7 proc ,+) ((3 value)) ((4 proc ,+) ((3 value)) ((1 value)))))
+  ;; (instrument (let ([y (+ 1 3)] [z 3]) (+ y z))))
+
+  (check-result-and-trace 7 `(((7 proc ,+) ((6 proc ,*) ((3 var z)) ((2 var y))) ((1 var x))))
+   (let ((x 1) (y 2) (z 3))
+     (instrument
+      (+ x (* y z)))))
+
+  (check-result-and-trace 10 `(((10 proc ,+) ((5 value)) ((5 value))))
+   (instrument (let ([x (+ 1 3)])
+                 (let-values (((x) 5)) (+ x x)))))
+
+  (check-result-and-trace 1 '(((1 value)))
+   (instrument (let ((x 1)) 1)))
+
+  (check-result-and-trace 16 `(((16 proc ,*) ((16 proc ,*) ((2 value)) ((8 proc ,*) ((2 value)) ((2 value)) ((2 value))))))
+   (instrument (if #f (+ 1 2) (* (* (* 2 (if (+ (+ 2 1) 1) 2 3) 2) 2)))))
+
+  (check-result-and-trace 25 `(((25 proc ,*) ((5 value)) ((5 value))))
+   (instrument ((if #t * +) 5 5)))
+
+  (check-result-and-trace 3 `(((3 proc ,+) ((2 var y)) ((1 var x))))
+   (let ((x 1) (y 2)) (instrument (+ x y))))
+
+  )
