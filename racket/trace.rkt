@@ -12,7 +12,8 @@
          node-type
          node-value
          trace-append
-         trace-append/label)
+         trace-append/label
+         check-result-and-trace)
 
 (define current-trace (make-parameter '()))
 (define parent-params (make-parameter '()))
@@ -77,23 +78,20 @@
               (lambda () (trace-append subexpr-trace))))
            result))]))
 
-(module+ test
-  (test-begin
-   (parameterize ([current-trace '()])
-     (let ([actual-value (trace-call + (trace-value 3)
-                                       (trace-value 5))]
-           [expected-value 8]
-           [expected-trace `(((8 proc ,+) ((5 value))
-                                       ((3 value))))])
-       (check-equal? actual-value expected-value)
-       (check-equal? (current-trace) expected-trace))))
+;; call function fn and check the return value and the current-trace against
+;; the expected results passed as arguments
+(define-syntax (check-result-and-trace stx)
+  (syntax-case stx ()
+    [(_ expected-value expected-trace expr)
+     #`(parameterize ([current-trace '()])
+         #,(syntax/loc stx (check-equal? expr expected-value))
+         #,(syntax/loc stx (check-equal? (current-trace) expected-trace)))]))
 
-  (test-begin
-   (parameterize ([current-trace '()])
-     (let ([actual-value (trace-call + (trace-call * (trace-value 3) (trace-value 2)) (trace-value 1))]
-           [expected-value 7]
-           [expected-trace `(((7 proc ,+) ((1 value))
-                                       ((6 proc ,*) ((2 value))
-                                                 ((3 value)))))])
-       (check-equal? actual-value expected-value)
-       (check-equal? (current-trace) expected-trace)))))
+(module+ test
+  (check-result-and-trace 8
+                          `(((8 proc ,+) ((5 value)) ((3 value))))
+                          (trace-call + (trace-value 3) (trace-value 5)))
+
+  (check-result-and-trace 7
+                          `(((7 proc ,+) ((1 value)) ((6 proc ,*) ((2 value)) ((3 value)))))
+                          (trace-call + (trace-call * (trace-value 3) (trace-value 2)) (trace-value 1))))
