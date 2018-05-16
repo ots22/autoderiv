@@ -38,7 +38,7 @@
 
     [(begin0 expr0 expr ...)
      (with-syntax ([expr0* (instrument-expanded #'expr0)])
-       (syntax/loc stx (begin expr0* expr ...)))]
+       (syntax/loc stx (begin0 expr0* expr ...)))]
 
     ;; TODO: multiple bindings in let-values
     [(let-values ([(id) def-expr])
